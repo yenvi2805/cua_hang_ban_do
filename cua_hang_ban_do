@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cooking Master - Fashion Chill</title>
+    <!-- Thư viện tạo pháo hoa Victory -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body { background: #1a0f0a; color: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        .game-frame {
+            width: 100%; max-width: 500px; height: 100vh; max-height: 900px;
+            background: linear-gradient(180deg, #3d2314 0%, #2a160c 100%);
+            display: flex; flex-direction: column; position: relative; overflow: hidden;
+            border: 2px solid #5c3a21; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        /* Thanh trạng thái phía trên */
+        .header {
+            height: 50px; background: rgba(0,0,0,0.7); display: flex;
+            justify-content: space-between; align-items: center; padding: 0 12px;
+            border-bottom: 2px solid #f39c12; z-index: 5;
+        }
+        .stat-box { display: flex; align-items: center; gap: 4px; font-weight: bold; font-size: 14px; color: #f1c40f; }
+
+        /* Area 1: Khách hàng & Quầy thu ngân */
+        .restaurant-view {
+            height: 38%; background: url('https://img.freepik.com/free-vector/restaurant-interior-background_23-2148011283.jpg') center/cover;
+            position: relative; display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 10px;
+        }
+        .customer-slot {
+            width: 30%; height: 90%; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end; position: relative; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+        }
+        .customer-slot.active { opacity: 1; }
+        
+        /* Hiệu ứng tức giận khi hết thời gian */
+        .customer-slot.angry { animation: shake 0.5s infinite; }
+        .customer-slot.angry .avatar::after {
+            content: '😡'; position: absolute; top: -20px; font-size: 28px;
+        }
+
+        .avatar { width: 75px; height: 100px; background-size: contain; background-repeat: no-repeat; background-position: bottom; position: relative; }
+        
+        /* Bong bóng yêu cầu món ăn */
+        .order-bubble {
+            position: absolute; top: -10px; background: #fff; border: 3px solid #e67e22;
+            border-radius: 12px; padding: 4px 6px; display: flex; gap: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4); animation: pop 0.3s ease-out; z-index: 2;
+        }
+        .order-bubble::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+            border-width: 8px 8px 0; border-style: solid; border-color: #e67e22 transparent;
+        }
+        .order-item { width: 32px; height: 32px; background-size: cover; border-radius: 4px; }
+        
+        .patience-bar { width: 85%; height: 7px; background: #444; border-radius: 4px; margin-top: 4px; overflow: hidden; border: 1px solid #000; }
+        .patience-fill { height: 100%; background: #2ecc71; width: 100%; transition: width 0.1s linear, background-color 0.3s; }
+
+        /* Area 2: Quầy Bếp (Kitchen Counter) */
+        .kitchen-counter {
+            height: 62%; background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+            border-top: 6px solid #d35400; padding: 10px; display: grid;
+            grid-template-rows: 1fr 1.2fr 1fr; gap: 8px; box-shadow: inset 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        .row { display: flex; justify-content: space-around; align-items: center; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 5px; }
+
+        .station { position: relative; width: 68px; height: 68px; border-radius: 10px; background: #34495e; border: 2px solid #7f8c8d; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .station-title { position: absolute; bottom: -18px; font-size: 10px; color: #bdc3c7; white-space: nowrap; }
+
+        .grill-spot { width: 52px; height: 52px; background: #222; border-radius: 50%; border: 2px solid #555; display: flex; justify-content: center; align-items: center; }
+        .patty { width: 42px; height: 42px; border-radius: 50%; background-size: cover; display: none; }
+        .patty.raw { background-image: url('https://cdn-icons-png.flaticon.com/512/3143/3143647.png'); display: block; }
+        .patty.cooked { background-image: url('https://cdn-icons-png.flaticon.com/512/1046/1046784.png'); display: block; box-shadow: 0 0 10px #f39c12; }
+
+        .plate { width: 72px; height: 72px; background: #ecf0f1; border-radius: 50%; border: 4px solid #bdc3c7; display: flex; justify-content: center; align-items: center; position: relative; }
+        .burger-assembled { width: 58px; height: 58px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+
+        .dispenser { width: 60px; height: 65px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+
+        .btn-action { background: linear-gradient(180deg, #e67e22 0%, #d35400 100%); border: none; color: white; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px #a04000; }
+        .btn-action:active { transform: translateY(2px); box-shadow: 0 2px #a04000; }
+
+        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10; text-align: center; padding: 20px; }
+        .overlay h2 { font-size: 36px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .overlay.win h2 { color: #2ecc71; animation: bounce 1s infinite alternate; }
+        .overlay.lose h2 { color: #e74c3c; }
+        .overlay p { font-size: 16px; margin-bottom: 20px; color: #ddd; }
+
+        .music-btn { position: absolute; top: 10px; right: 10px; z-index: 100; font-size: 16px; cursor: pointer; background: rgba(0,0,0,0.6); border-radius: 50%; width: 32px; height: 32px; display: flex; justify-content: center; align-items: center; border: 1px solid #fff; }
+        
+        @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+    </style>
+</head>
+<body>
+
+<!-- Nhạc nền Style Savvy: Fashion Forward Title Screen[span_1](start_span)[span_1](end_span) -->
+<audio id="bg-music" loop preload="auto">
+    <source src="https://files.catbox.moe/k3z0s9.mp3" type="audio/mpeg">
+</audio>
+
+<div class="game-frame" onclick="startAudio()">
+    <div class="music-btn" onclick="toggleMusic(event)" title="Bật/Tắt nhạc">🎵</div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="stat-box">💰 <span id="money">0</span> / <span id="target">500</span></div>
+        <div class="stat-box">⭐ Lvl <span id="level">1</span>/5</div>
+        <div class="stat-box">❤️ <span id="lives">3</span></div>
+    </div>
+
+    <!-- Khu vực nhà hàng -->
+    <div class="restaurant-view">
+        <div class="customer-slot" id="slot-0">
+            <div class="order-bubble" id="bubble-0"></div>
+            <div class="avatar" id="avatar-0"></div>
+            <div class="patience-bar"><div class="patience-fill" id="patience-0"></div></div>
+        </div>
+        <div class="customer-slot" id="slot-1">
+            <div class="order-bubble" id="bubble-1"></div>
+            <div class="avatar" id="avatar-1"></div>
+            <div class="patience-bar"><div class="patience-fill" id="patience-1"></div></div>
+        </div>
+    </div>
+
+    <!-- Quầy Bếp -->
+    <div class="kitchen-counter">
+        <div class="row">
+            <div class="station plate" onclick="serveBurger(0)">
+                <div class="burger-assembled" id="plate-0"></div>
+                <span class="station-title">Dĩa Burger 1</span>
+            </div>
+            <div class="station plate" onclick="serveBurger(1)">
+                <div class="burger-assembled" id="plate-1"></div>
+                <span class="station-title">Dĩa Burger 2</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="station" onclick="cookPatty(0)">
+                <div class="grill-spot"><div class="patty" id="patty-0"></div></div>
+                <span class="station-title">Bếp Nướng 1</span>
+            </div>
+            <div class="station" onclick="cookPatty(1)">
+                <div class="grill-spot"><div class="patty" id="patty-1"></div></div>
+                <span class="station-title">Bếp Nướng 2</span>
+            </div>
+            <button class="btn-action" onclick="assembleBurger()">Lấy Bánh Mì 🍞</button>
+        </div>
+
+        <div class="row">
+            <div class="station" onclick="serveSide('coke')">
+                <div class="dispenser" style="background-image: url('https://cdn-icons-png.flaticon.com/512/2405/2405479.png');"></div>
+                <span class="station-title">Rót Cola 🥤</span>
+            </div>
+            <div class="station" onclick="serveSide('fries')">
+                <div class="dispenser" style="background-image: url('https://cdn-icons-png.flaticon.com/512/1046/1046786.png');"></div>
+                <span class="station-title">Khoai Chiên 🍟</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Màn hình kết thúc -->
+    <div class="overlay" id="overlay">
+        <h2 id="overlay-title">VICTORY!</h2>
+        <p id="overlay-desc">Mô tả kết quả...</p>
+        <button class="btn-action" onclick="resetGame()">Chơi Lại Từ Đầu 🔄</button>
+    </div>
+</div>
+
+<script>
+    const IMAGES = {
+        burger: 'https://cdn-icons-png.flaticon.com/512/3075/3075977.png',
+        coke: 'https://cdn-icons-png.flaticon.com/512/2405/2405479.png',
+        fries: 'https://cdn-icons-png.flaticon.com/512/1046/1046786.png',
+        customers: [
+            'https://cdn-icons-png.flaticon.com/512/4140/4140048.png',
+            'https://cdn-icons-png.flaticon.com/512/4140/4140047.png',
+            'https://cdn-icons-png.flaticon.com/512/4140/4140051.png'
+        ]
+    };
+
+    const WIN_MONEY = 500;
+    let money = 0, level = 1, lives = 3;
+    let gameEnded = false, musicStarted = false;
+
+    let grill = [{ state: 'empty' }, { state: 'empty' }];
+    let plates = [null, null];
+    let customers = [
+        { active: false, order: [], patience: 100, timer: null },
+        { active: false, order: [], patience: 100, timer: null }
+    ];
+
+    function startAudio() {
+        if (!musicStarted) {
+            const music = document.getElementById('bg-music');
+            music.play().then(() => { musicStarted = true; }).catch(() => {});
+        }
+    }
+
+    function toggleMusic(e) {
+        e.stopPropagation();
+        const music = document.getElementById('bg-music');
+        if (music.paused) music.play();
+        else music.pause();
+    }
+
+    function updateUI() {
+        document.getElementById('money').innerText = money;
+        document.getElementById('level').innerText = level;
+        document.getElementById('lives').innerText = '❤️'.repeat(lives);
+
+        grill.forEach((spot, idx) => {
+            document.getElementById(`patty-${idx}`).className = 'patty ' + spot.state;
+        });
+
+        plates.forEach((item, idx) => {
+            const plateEl = document.getElementById(`plate-${idx}`);
+            plateEl.style.backgroundImage = (item === 'burger') ? `url('${IMAGES.burger}')` : 'none';
+        });
+    }
+
+    function cookPatty(idx) {
+        if (gameEnded) return;
+        if (grill[idx].state === 'empty') {
+            grill[idx].state = 'raw';
+            updateUI();
+            let cookSpeed = Math.max(1500, 3000 - (level * 200));
+            setTimeout(() => {
+                if (grill[idx].state === 'raw' && !gameEnded) {
+                    grill[idx].state = 'cooked';
+                    updateUI();
+                }
+            }, cookSpeed);
+        }
+    }
+
+    function assembleBurger() {
+        if (gameEnded) return;
+        const cookedIdx = grill.findIndex(g => g.state === 'cooked');
+        const emptyPlateIdx = plates.findIndex(p => p === null);
+
+        if (cookedIdx !== -1 && emptyPlateIdx !== -1) {
+            grill[cookedIdx].state = 'empty';
+            plates[emptyPlateIdx] = 'burger';
+            updateUI();
+        }
+    }
+
+    function serveBurger(plateIdx) {
+        if (gameEnded) return;
+        if (plates[plateIdx] === 'burger') {
+            if (tryFulfillOrder('burger')) {
+                plates[plateIdx] = null;
+                updateUI();
+            }
+        }
+    }
+
+    function serveSide(type) {
+        if (gameEnded) return;
+        tryFulfillOrder(type);
+    }
+
+    function tryFulfillOrder(itemType) {
+        for (let i = 0; i < customers.length; i++) {
+            let c = customers[i];
+            if (c.active) {
+                let matchIdx = c.order.indexOf(itemType);
+                if (matchIdx !== -1) {
+                    c.order.splice(matchIdx, 1);
+                    renderOrderBubble(i);
+                    money += 20;
+
+                    checkProgress();
+
+                    if (c.order.length === 0) {
+                        clearCustomer(i, true);
+                    }
+                    updateUI();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function checkProgress() {
+        if (money >= WIN_MONEY) {
+            gameWin();
+            return;
+        }
+
+        let newLevel = Math.floor(money / 100) + 1;
+        if (newLevel > level && newLevel <= 5) {
+            level = newLevel;
+        }
+    }
+
+    function spawnCustomer(slotIdx) {
+        if (gameEnded || customers[slotIdx].active) return;
+
+        let c = customers[slotIdx];
+        c.active = true;
+        c.patience = 100;
+
+        const possible = ['burger', 'coke', 'fries'];
+        c.order = [possible[Math.floor(Math.random() * possible.length)]];
+        
+        if (level >= 2 && Math.random() > 0.4) c.order.push(possible[Math.floor(Math.random() * possible.length)]);
+        if (level >= 4 && Math.random() > 0.5) c.order.push(possible[Math.floor(Math.random() * possible.length)]);
+
+        const slotEl = document.getElementById(`slot-${slotIdx}`);
+        slotEl.className = 'customer-slot active';
+        document.getElementById(`avatar-${slotIdx}`).style.backgroundImage = `url('${IMAGES.customers[Math.floor(Math.random()*IMAGES.customers.length)]}')`;
+        renderOrderBubble(slotIdx);
+
+        let duration = Math.max(6000, 16000 - (level * 2200));
+        let startTime = Date.now();
+
+        c.timer = setInterval(() => {
+            if (gameEnded) { clearInterval(c.timer); return; }
+
+            let elapsed = Date.now() - startTime;
+            c.patience = 100 - (elapsed / duration * 100);
+
+            const pBar = document.getElementById(`patience-${slotIdx}`);
+            if (c.patience <= 0) {
+                slotEl.classList.add('angry');
+                setTimeout(() => clearCustomer(slotIdx, false), 800);
+                clearInterval(c.timer);
+            } else {
+                pBar.style.width = c.patience + '%';
+                pBar.style.backgroundColor = c.patience < 30 ? '#e74c3c' : '#2ecc71';
+            }
+        }, 100);
+    }
+
+    function renderOrderBubble(slotIdx) {
+        const bubble = document.getElementById(`bubble-${slotIdx}`);
+        bubble.innerHTML = '';
+        customers[slotIdx].order.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'order-item';
+            div.style.backgroundImage = `url('${IMAGES[item]}')`;
+            bubble.appendChild(div);
+        });
+    }
+
+    function clearCustomer(slotIdx, success) {
+        let c = customers[slotIdx];
+        clearInterval(c.timer);
+        c.active = false;
+
+        const slotEl = document.getElementById(`slot-${slotIdx}`);
+        slotEl.className = 'customer-slot';
+
+        if (!success && !gameEnded) {
+            lives--;
+            updateUI();
+            if (lives <= 0) {
+                gameOver();
+                return;
+            }
+        }
+
+        if (!gameEnded) {
+            let respawnDelay = Math.max(1000, 3000 - (level * 400));
+            setTimeout(() => spawnCustomer(slotIdx), respawnDelay);
+        }
+    }
+
+    function gameOver() {
+        gameEnded = true;
+        const overlay = document.getElementById('overlay');
+        overlay.className = 'overlay lose';
+        overlay.style.display = 'flex';
+        document.getElementById('overlay-title').innerText = '😭 GAME OVER!';
+        document.getElementById('overlay-desc').innerText = `Khách hàng đã tức giận bỏ đi vì chờ quá lâu!\nDoanh thu đạt được: $${money}`;
+    }
+
+    function gameWin() {
+        gameEnded = true;
+        const overlay = document.getElementById('overlay');
+        overlay.className = 'overlay win';
+        overlay.style.display = 'flex';
+        document.getElementById('overlay-title').innerText = '🏆 VICTORY! 🏆';
+        document.getElementById('overlay-desc').innerText = `XUẤT SẮC! Bạn đã hoàn thành mục tiêu $${WIN_MONEY} và làm chủ nhà hàng thời trang!`;
+
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+            setTimeout(() => confetti({ particleCount: 120, spread: 110, origin: { y: 0.4 } }), 400);
+        }
+    }
+
+    function resetGame() {
+        money = 0; level = 1; lives = 3; gameEnded = false;
+        grill = [{ state: 'empty' }, { state: 'empty' }];
+        plates = [null, null];
+
+        customers.forEach((c, idx) => {
+            clearInterval(c.timer);
+            c.active = false;
+            document.getElementById(`slot-${idx}`).className = 'customer-slot';
+        });
+
+        document.getElementById('overlay').style.display = 'none';
+        updateUI();
+        spawnCustomer(0);
+        setTimeout(() => spawnCustomer(1), 2500);
+    }
+
+    updateUI();
+    spawnCustomer(0);
+    setTimeout(() => spawnCustomer(1), 3000);
+</script>
+
+</body>
+</html>
+  
